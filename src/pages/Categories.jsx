@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FiShoppingCart, FiCheck, FiSearch, FiFilter, 
+  FiShoppingCart, FiCheck, FiSearch, 
   FiHeart, FiStar, FiSliders, FiBox, FiChevronRight, FiEye, FiTruck, FiShield 
 } from 'react-icons/fi';
 import api from '../services/api';
@@ -75,6 +75,7 @@ const Categories = () => {
 
     window.addEventListener('wishlist:updated', handleWishlistChange);
     return () => window.removeEventListener('wishlist:updated', handleWishlistChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products.length]);
 
   const getSubcategoriesForMain = (mainCatName) => {

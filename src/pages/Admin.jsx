@@ -4,7 +4,7 @@ import {
   FiPlus, FiSearch, FiFilter, FiCheckCircle, 
   FiRefreshCw, FiEdit3, FiTrash2,
   FiTrendingUp, FiCalendar, FiShield, FiAlertTriangle, FiX,
-  FiTruck, FiClock, FiEye, FiAlertCircle, FiLayers
+  FiTruck, FiClock, FiEye, FiAlertCircle
 } from 'react-icons/fi';
 import { catalogAPI, adminAPI, authAPI } from '../services/api';
 import '../styles/Admin.css';

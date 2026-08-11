@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   FiStar, FiShoppingBag, FiHeart, FiCheck, FiTruck, 
   FiShield, FiRotateCcw, FiMapPin, FiChevronRight, FiBox, 
-  FiShare2, FiInfo, FiLayers
+  FiInfo, FiLayers
 } from 'react-icons/fi';
 import { catalogAPI } from '../services/api';
 import { addToCart } from '../utils/cart';
@@ -169,7 +169,6 @@ const ProductDetail = () => {
     );
   }
 
-  const prodId = product.productId || product.id;
   const thumbnails = [
     product.imageUrl,
     'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
