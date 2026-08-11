@@ -43,6 +43,7 @@ const ProductDetail = () => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [newReviewComment, setNewReviewComment] = useState('');
+  const [activeTab, setActiveTab] = useState('specs');
 
   const handleAddReview = (e) => {
     e.preventDefault();
