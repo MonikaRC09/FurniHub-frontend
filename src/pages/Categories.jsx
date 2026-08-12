@@ -13,16 +13,28 @@ import '../styles/Categories.css';
 const MAIN_CATEGORIES = [
   'Living room',
   'Bed room',
-  'Dinning',
+  'Dining',
   'Office',
   'Storage',
   'Decoration'
 ];
 
+const isCategoryMatch = (prodCat, targetCat) => {
+  if (!prodCat || !targetCat) return false;
+  const p = prodCat.toLowerCase().trim();
+  const t = targetCat.toLowerCase().trim();
+  if (p === t) return true;
+  if (t === 'dining' && (p === 'dinning' || p.includes('dinning') || p.includes('dining'))) return true;
+  if (t === 'dinning' && (p === 'dining' || p.includes('dinning') || p.includes('dining'))) return true;
+  return p.includes(t);
+};
+
 const Categories = () => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errorState, setErrorState] = useState(false);
   const [activeMainCategory, setActiveMainCategory] = useState('All');
   const [activeSubCategory, setActiveSubCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,32 +47,57 @@ const Categories = () => {
   // Quick View Modal State
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
-  useEffect(() => {
-    const loadCatalog = async () => {
-      try {
-        const [categoriesResponse, productsResponse] = await Promise.all([
-          api.get('/categories').catch(() => []),
-          api.get('/products').catch(() => []),
-        ]);
-        const { categories: loadedCategories, products: loadedProducts } = getCatalogData(categoriesResponse, productsResponse);
+  const fetchCatalogData = async (isRetry = false) => {
+    setLoading(true);
+    setErrorState(false);
+    try {
+      const [categoriesResponse, productsResponse] = await Promise.all([
+        api.get('/categories').catch(() => null),
+        api.get('/products').catch(() => null),
+      ]);
+      const { categories: loadedCategories, products: loadedProducts } = getCatalogData(categoriesResponse, productsResponse);
+
+      if (loadedProducts && loadedProducts.length > 0) {
         setCategories(loadedCategories);
         setProducts(loadedProducts);
 
-        // Init wishlist state map
         const stateMap = {};
         loadedProducts.forEach(p => {
           const id = p.id || p.productId;
           stateMap[id] = isInWishlist(id);
         });
         setWishlistState(stateMap);
-      } catch (error) {
+        setLoading(false);
+      } else {
+        // If 0 products returned and hasn't retried yet, auto retry in 3.5 seconds (for Render backend cold start)
+        if (!isRetry) {
+          setTimeout(() => {
+            fetchCatalogData(true);
+          }, 3500);
+        } else {
+          setCategories(loadedCategories || []);
+          setProducts(loadedProducts || []);
+          setLoading(false);
+          setErrorState(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load catalog', error);
+      if (!isRetry) {
+        setTimeout(() => {
+          fetchCatalogData(true);
+        }, 3500);
+      } else {
         setCategories([]);
         setProducts([]);
-        console.error('Failed to load catalog', error);
+        setLoading(false);
+        setErrorState(true);
       }
-    };
+    }
+  };
 
-    loadCatalog();
+  useEffect(() => {
+    fetchCatalogData(false);
 
     const handleWishlistChange = () => {
       setWishlistState(prev => {
@@ -76,15 +113,15 @@ const Categories = () => {
     window.addEventListener('wishlist:updated', handleWishlistChange);
     return () => window.removeEventListener('wishlist:updated', handleWishlistChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products.length]);
+  }, []);
 
   const getSubcategoriesForMain = (mainCatName) => {
     if (mainCatName === 'All') {
       return categories.filter(c => c.parentId !== null);
     }
-    const parent = categories.find(c => c.name.toLowerCase() === mainCatName.toLowerCase());
+    const parent = categories.find(c => isCategoryMatch(c.name, mainCatName));
     if (!parent) {
-      return categories.filter(c => c.parentName && c.parentName.toLowerCase() === mainCatName.toLowerCase());
+      return categories.filter(c => c.parentName && isCategoryMatch(c.parentName, mainCatName));
     }
     return categories.filter(c => c.parentId === parent.id);
   };
@@ -100,14 +137,14 @@ const Categories = () => {
     // Main category match
     let matchesMain = true;
     if (activeMainCategory !== 'All') {
-      matchesMain = (product.parentCategoryName && product.parentCategoryName.toLowerCase() === activeMainCategory.toLowerCase()) ||
-                    (product.categoryName && product.categoryName.toLowerCase().includes(activeMainCategory.toLowerCase()));
+      matchesMain = (product.parentCategoryName && isCategoryMatch(product.parentCategoryName, activeMainCategory)) ||
+                    (product.categoryName && isCategoryMatch(product.categoryName, activeMainCategory));
     }
 
     // Subcategory match
     let matchesSub = true;
     if (activeSubCategory !== 'All') {
-      matchesSub = product.categoryName && product.categoryName.toLowerCase() === activeSubCategory.toLowerCase();
+      matchesSub = product.categoryName && isCategoryMatch(product.categoryName, activeSubCategory);
     }
 
     // Price Filter
@@ -176,8 +213,8 @@ const Categories = () => {
         </button>
         {MAIN_CATEGORIES.map((mainCat) => {
           const count = products.filter(p => 
-            (p.parentCategoryName && p.parentCategoryName.toLowerCase() === mainCat.toLowerCase()) ||
-            (p.categoryName && p.categoryName.toLowerCase().includes(mainCat.toLowerCase()))
+            (p.parentCategoryName && isCategoryMatch(p.parentCategoryName, mainCat)) ||
+            (p.categoryName && isCategoryMatch(p.categoryName, mainCat))
           ).length;
 
           return (
@@ -279,17 +316,31 @@ const Categories = () => {
       </div>
 
       {/* Products Grid */}
-      {filteredProducts.length === 0 ? (
+      {loading ? (
+        <div className="categories-loading-box">
+          <div className="loading-spinner"></div>
+          <h3>Loading FurniHub Collections...</h3>
+          <p>Connecting to catalog server...</p>
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <div className="no-products-msg">
           <FiBox className="empty-box-icon" />
           <h3>No matching furniture found</h3>
-          <p>Try adjusting your search query, price slider, or subcategory filters.</p>
-          <button 
-            className="btn btn-secondary mt-3"
-            onClick={() => { setSearchQuery(''); setMaxPriceFilter(250000); setActiveMainCategory('All'); setActiveSubCategory('All'); }}
-          >
-            Reset All Filters
-          </button>
+          <p>{errorState ? "Catalog server is starting up or unreachable. Please try again." : "Try adjusting your search query, price slider, or subcategory filters."}</p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '1rem' }}>
+            <button 
+              className="btn btn-secondary"
+              onClick={() => { setSearchQuery(''); setMaxPriceFilter(250000); setActiveMainCategory('All'); setActiveSubCategory('All'); }}
+            >
+              Reset All Filters
+            </button>
+            <button 
+              className="btn btn-primary"
+              onClick={() => fetchCatalogData(true)}
+            >
+              Retry Loading
+            </button>
+          </div>
         </div>
       ) : (
         <div className="category-products-grid">
